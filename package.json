@@ -5,7 +5,8 @@
     "dev": "bun run --hot src/index.ts",
     "test": "bun test",
     "build": "bun build ./src/index.ts --outdir ./dist --target bun",
-    "prisma:generate": "bunx prisma generate"
+    "prisma:generate": "bunx prisma generate",
+    "postinstall": "bunx prisma generate"
   },
   "dependencies": {
     "@hono/swagger-ui": "^0.5.2",
@@ -14,10 +15,12 @@
     "@prisma/adapter-pg": "^7.0.1",
     "@prisma/client": "^7.0.1",
     "@supabase/supabase-js": "^2.86.0",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^7.0.4",
     "@types/otp-generator": "^4.0.2",
     "@types/pg": "^8.15.6",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "hono": "^4.10.7",
     "nodemailer": "^7.0.11",

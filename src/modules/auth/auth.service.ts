@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import type { RegisterDTO, LoginDTO, ForgotPasswordDTO, VerifyOtpDTO, ResetPasswordDTO } from "./auth.dto";
 import otpGenerator from "otp-generator";
 import { sendEmail } from "../../utils/email";
+import { compare, hash } from "bcryptjs";
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
@@ -17,10 +18,7 @@ export const AuthService = {
       throw new HTTPException(400, { message: "Email already registered" });
     }
 
-    const hashedPassword = await Bun.password.hash(data.password, {
-      algorithm: "bcrypt",
-      cost: 10,
-    });
+    const hashedPassword = await hash(data.password, 10);
 
     const user = await prisma.user.create({
       data: {
@@ -45,7 +43,7 @@ export const AuthService = {
       throw new HTTPException(401, { message: "Invalid credentials" });
     }
 
-    const isPasswordValid = await Bun.password.verify(data.password, user.password);
+    const isPasswordValid = await compare(data.password, user.password);
 
     if (!isPasswordValid) {
       throw new HTTPException(401, { message: "Invalid credentials" });
@@ -194,10 +192,7 @@ export const AuthService = {
     const user = await prisma.user.findUniqueOrThrow({ where: { email: data.email } });
 
     // Hash new password
-    const hashedPassword = await Bun.password.hash(data.newPassword, {
-      algorithm: "bcrypt",
-      cost: 10,
-    });
+    const hashedPassword = await hash(data.newPassword, 10);
 
     // Update DB
     await prisma.user.update({
