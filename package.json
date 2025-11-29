@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "test": "bun test",
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "build": "bunx prisma generate",
     "prisma:generate": "bunx prisma generate",
     "postinstall": "bunx prisma generate"
   },
