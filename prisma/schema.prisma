@@ -1,0 +1,312 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- 1. ENUMS (Standarisasi Data) ---
+enum Role {
+  CUSTOMER
+  BARISTA
+  DATA_ANALYST
+  ADMIN
+  SUPERADMIN
+}
+
+enum OrderStatus {
+  PENDING     // Belum bayar / Menunggu konfirmasi
+  PREPARING   // Masuk ke layar Barista
+  READY       // Siap diambil/dikirim
+  DELIVERED   // Selesai
+  CANCELLED   // Batal
+}
+
+enum Category {
+  COFFEE
+  PASTRY
+  MERCH
+  FOOD        // Tambahan untuk menu seperti Avocado Toast
+}
+
+// --- 2. USER & AUTHENTICATION ---
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String    // Disimpan dalam bentuk Hash
+  name          String
+  role          Role      @default(CUSTOMER)
+  
+  // Profile Fields (Sesuai SettingsPage.tsx)
+  mobile        String?
+  address       String?
+  country       String?
+  avatarColor   String    @default("795548") // Hex code warna default
+  
+  // Gamification (Daily Brew Streak)
+  streak        Int       @default(0)
+  points        Int       @default(0) // Loyalty points
+  lastVisit     DateTime? @default(now())
+
+  // Tambahan untuk Reset Password
+  resetToken        String?   // Kode OTP disimpan disini
+  resetTokenExpires DateTime? // Kapan OTP kadaluarsa (misal 5 menit lagi)
+  
+  // Relations
+  orders        Order[]
+  auditLogs     AuditLog[]
+  reviews       Review[]
+  wishlists     Wishlist[]
+
+  // Relasi ke Refresh Token
+  refreshTokens RefreshToken[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique // Tokennya (biasanya di-hash biar aman)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  device    String?  // Info login (misal: "Chrome on Windows")
+  ip        String?  // IP Address user saat login
+  
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@map("refresh_tokens")
+}
+
+// --- 3. PRODUCT CATALOG (Menu) ---
+model Product {
+  id              String   @id @default(uuid())
+  name            String
+  description     String   @db.Text // Support HTML string dari Tiptap Editor
+  category        Category
+  price           Decimal  @db.Decimal(10, 2) // Harga dasar
+  rating          Float    @default(0)
+  
+  // Media Assets
+  image           String   // Main Thumbnail URL
+  images          String[] // Carousel Gallery URLs
+  
+  // Rich Details (Sesuai form ProductForm.tsx)
+  subDescriptions String[] // "Highlights" atau bullet points
+  origin          String?  // e.g. "Aceh Gayo"
+  roastLevel      String?  // e.g. "Medium Dark"
+  tastingNotes    String[] // e.g. ["Fruity", "Nutty"]
+  
+  // Display Options (Untuk UI Selector di Frontend)
+  // Note: Stok aktual dihitung via relasi 'variants' di bawah
+  sizes           String[] // e.g. ["S", "M", "L"]
+  grindOptions    String[] // e.g. ["Whole Bean", "Espresso"]
+
+  // Relations
+  variants        ProductVariant[] // <-- KUNCI: Stok disimpan di sini
+  reviews         Review[]
+  wishlists       Wishlist[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("products")
+}
+
+// --- 4. INVENTORY MANAGEMENT (Varian) ---
+// Pengganti model 'Inventory' lama.
+// Stok menempel pada varian spesifik (Ex: Kopi Gayo ukuran Large)
+model ProductVariant {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  name      String   // e.g. "Large", "Regular", "250g Bag"
+  sku       String?  @unique // Kode unik barang (opsional)
+  
+  price     Decimal  @db.Decimal(10, 2) // Harga spesifik varian ini
+  costPrice Decimal  @default(0) @db.Decimal(10, 2) // COGS
+  stock     Int      @default(0)        // Jumlah stok fisik
+  
+  orderItems OrderItem[]
+
+  @@map("product_variants")
+}
+
+// --- 5. ORDERS & TRANSACTIONS ---
+model Order {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  
+  status          OrderStatus @default(PENDING)
+  total           Decimal     @db.Decimal(10, 2)
+  location        String?     // Alamat pengiriman snapshot
+  
+  // Payment Info
+  paymentId       String?     // ID dari Midtrans/Transaction table
+  
+  items           OrderItem[]
+  transaction     Transaction?
+  
+  // Timestamps
+  createdAt       DateTime    @default(now()) // Barista timer start
+  updatedAt       DateTime    @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
+  
+  // Product Info Snapshot (Jika produk dihapus, history tetap ada)
+  productId       String?  // Tetap simpan ID induk untuk referensi
+  productName     String
+  productImage    String
+  
+  // Link ke Varian (Untuk pengurangan stok)
+  variantId       String?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id])
+  
+  quantity        Int
+  price           Decimal  @db.Decimal(10, 2) // Harga saat beli
+  
+  // Customizations (JSON)
+  // e.g. { "sugar": "less", "notes": "Jangan pakai sedotan" }
+  modifiers       Json?    
+
+  @@map("order_items")
+}
+
+model Transaction {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id])
+  
+  gatewayRefId    String?  // Order ID dari Midtrans
+  paymentMethod   String?  // 'credit_card', 'gopay'
+  amount          Decimal  @db.Decimal(10, 2)
+  status          String   // 'settlement', 'pending', 'expire'
+  
+  rawResponse     Json?    // Debugging purpose
+  
+  createdAt       DateTime @default(now())
+
+  @@map("transactions")
+}
+
+// --- 6. LOGISTICS & IOT (Dashboard) ---
+model StationLogistics {
+  id          String   @id @default(uuid())
+  name        String   // "La Marzocco Group 1"
+  category    String   // 'machine', 'beans', 'dairy'
+  status      String   // 'ok', 'low', 'critical'
+  metricValue String?  // "93.5", "20"
+  unit        String?  // "°C", "%"
+  lastChecked DateTime @default(now())
+
+  @@map("station_logistics")
+}
+
+// --- 7. AUDIT LOGS (Security) ---
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  action    String   // "UPDATE_ROLE", "DELETE_PRODUCT"
+  module    String   // "Users", "Inventory"
+  details   String?  // Deskripsi perubahan
+  severity  String   // "info", "warning", "critical"
+  
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// --- 8. CMS (Content Management) ---
+model JobPosting {
+  id          String   @id @default(uuid())
+  title       String
+  location    String
+  type        String   // "Full-time", "Part-time"
+  description String   @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("job_postings")
+}
+
+model StoreLocation {
+  id          String   @id @default(uuid())
+  name        String
+  address     String
+  city        String?
+  phone       String?
+  image       String?
+  mapUrl      String?
+  coordinates Json?    // { lat: number, lng: number }
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("store_locations")
+}
+
+// --- 9. SOCIAL (Wishlist & Reviews) ---
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  rating    Int      // 1-5
+  comment   String?  @db.Text
+  
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}
+
+// --- 10. FINANCE ---
+model Expense {
+  id          String   @id @default(uuid())
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime @default(now())
+  category    String   // "Rent", "Utilities", "Ingredients"
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("expenses")
+}
