@@ -1,6 +1,6 @@
 import { prisma } from "../../utils/prisma";
 import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
-import { Prisma } from "../../../generated/prisma/client";
+import { Prisma } from "@prisma/client";
 
 export const ProductsService = {
   async createProduct(data: CreateProductDTO) {

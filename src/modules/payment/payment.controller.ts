@@ -1,4 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { PaymentService } from "./payment.service";
 import { webhookSchema } from "./payment.dto";
 import { apiResponse } from "../../utils/response";
 
@@ -10,12 +11,12 @@ const responseSchema = z.object({
   data: z.any().optional(),
 });
 
-// --- Webhook Notification ---
+// --- Webhook ---
 const webhookRoute = createRoute({
   method: 'post',
   path: '/webhook',
   tags: ['Payment'],
-  summary: 'Payment Gateway Webhook',
+  summary: 'Payment gateway webhook',
   request: {
     body: {
       content: {
@@ -37,10 +38,9 @@ const webhookRoute = createRoute({
   },
 });
 
-payment.openapi(webhookRoute, async (c) => {
+payment.openapi(webhookRoute, async (c: any) => {
   const data = c.req.valid("json");
-  // Logic to update order status based on payment
-  console.log("Payment Webhook Received:", data);
+  await PaymentService.handleWebhook(data);
   return apiResponse(c, 200, "Webhook processed");
 });
 

@@ -1,4 +1,3 @@
-
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { ProductsService } from "./products.service";
 import { createProductSchema, updateProductSchema } from "./products.dto";

@@ -11,18 +11,19 @@ const responseSchema = z.object({
   data: z.any().optional(),
 });
 
-// --- Product Upload ---
-const uploadProductRoute = createRoute({
+// --- Upload File ---
+const uploadFileRoute = createRoute({
   method: 'post',
-  path: '/upload/products',
+  path: '/upload',
   tags: ['Storage'],
-  summary: 'Upload product images',
+  summary: 'Upload file to storage',
   request: {
     body: {
       content: {
         'multipart/form-data': {
           schema: z.object({
-            files: z.union([z.instanceof(File), z.array(z.instanceof(File))]),
+            file: z.instanceof(File).openapi({ type: 'string', format: 'binary' }),
+            folder: z.string().optional().default('uploads'),
           }),
         },
       },
@@ -30,65 +31,27 @@ const uploadProductRoute = createRoute({
   },
   responses: {
     201: {
-      content: { 'application/json': { schema: responseSchema } },
-      description: 'Product images uploaded successfully',
-    },
-  },
-});
-
-storage.openapi(uploadProductRoute, roleGuard(["ADMIN", "SUPERADMIN"]) as any, async (c: any) => {
-  const body = await c.req.parseBody();
-  let files = body['files'];
-
-  if (!files) return apiResponse(c, 400, "No files provided");
-  if (!Array.isArray(files)) files = [files as File];
-
-  try {
-    const urls = await StorageService.uploadFiles(files as File[], "products");
-    return apiResponse(c, 201, "Product images uploaded", { urls, url: urls[0] });
-  } catch (error) {
-    return apiResponse(c, 500, "Upload failed", String(error));
-  }
-});
-
-// --- Location Upload ---
-const uploadLocationRoute = createRoute({
-  method: 'post',
-  path: '/upload/locations',
-  tags: ['Storage'],
-  summary: 'Upload location images',
-  request: {
-    body: {
       content: {
-        'multipart/form-data': {
-          schema: z.object({
-            files: z.union([z.instanceof(File), z.array(z.instanceof(File))]),
-          }),
+        'application/json': {
+          schema: responseSchema,
         },
       },
-    },
-  },
-  responses: {
-    201: {
-      content: { 'application/json': { schema: responseSchema } },
-      description: 'Location images uploaded successfully',
+      description: 'File uploaded',
     },
   },
 });
 
-storage.openapi(uploadLocationRoute, roleGuard(["ADMIN", "SUPERADMIN"]) as any, async (c: any) => {
+storage.openapi(uploadFileRoute, roleGuard(["ADMIN", "SUPERADMIN", "BARISTA"]) as any, async (c: any) => {
   const body = await c.req.parseBody();
-  let files = body['files'];
+  const file = body['file'];
+  const folder = body['folder'] as string;
 
-  if (!files) return apiResponse(c, 400, "No files provided");
-  if (!Array.isArray(files)) files = [files as File];
-
-  try {
-    const urls = await StorageService.uploadFiles(files as File[], "locations");
-    return apiResponse(c, 201, "Location images uploaded", { urls, url: urls[0] });
-  } catch (error) {
-    return apiResponse(c, 500, "Upload failed", String(error));
+  if (!file || !(file instanceof File)) {
+    return apiResponse(c, 400, "No file uploaded");
   }
+
+  const url = await StorageService.uploadFile(file, folder);
+  return apiResponse(c, 201, "File uploaded successfully", { url });
 });
 
 export default storage;

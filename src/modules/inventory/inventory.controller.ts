@@ -11,6 +11,7 @@ const responseSchema = z.object({
   data: z.any().optional(),
 });
 
+// --- Restock Variant ---
 const restockRoute = createRoute({
   method: 'post',
   path: '/restock',
@@ -46,11 +47,12 @@ inventory.openapi(restockRoute, roleGuard(["ADMIN", "SUPERADMIN", "BARISTA"]) as
   return apiResponse(c, 200, "Stock updated", updatedVariant);
 });
 
+// --- Low Stock ---
 const lowStockRoute = createRoute({
   method: 'get',
   path: '/low-stock',
   tags: ['Inventory'],
-  summary: 'Get low stock variants',
+  summary: 'Get low stock items',
   responses: {
     200: {
       content: {
@@ -58,7 +60,7 @@ const lowStockRoute = createRoute({
           schema: responseSchema,
         },
       },
-      description: 'List of low stock items',
+      description: 'Low stock items',
     },
     404: {
       content: {

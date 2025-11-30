@@ -1,39 +1,32 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { streamSSE } from "hono/streaming";
-import { events } from "../../utils/events";
 
-const realtime = new Hono();
+const realtime = new OpenAPIHono();
 
-realtime.get("/events", async (c) => {
+let clients: { id: number, controller: any }[] = [];
+
+realtime.get('/', async (c) => {
   return streamSSE(c, async (stream) => {
-    // Send initial connection message
-    await stream.writeSSE({
-      data: "Connected to Coffee & Co Realtime Stream",
-      event: "connected",
-    });
+    const id = Date.now();
+    clients.push({ id, controller: stream });
 
-    // Listener for new orders
-    const onNewOrder = async (order: any) => {
-      await stream.writeSSE({
-        data: JSON.stringify(order),
-        event: "new_order",
-      });
-    };
-
-    // Register listener
-    events.on("new_order", onNewOrder);
-
-    // Cleanup on disconnect
     stream.onAbort(() => {
-      events.off("new_order", onNewOrder);
+      clients = clients.filter(client => client.id !== id);
     });
 
-    // Keep connection alive
     while (true) {
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-      await stream.writeSSE({ data: "ping", event: "ping" });
+      await stream.sleep(1000); // Keep connection alive
     }
   });
 });
+
+export const broadcast = (event: string, data: any) => {
+  clients.forEach(client => {
+    client.controller.writeSSE({
+      event,
+      data: JSON.stringify(data),
+    });
+  });
+};
 
 export default realtime;

@@ -27,7 +27,6 @@ export const createProductSchema = z.object({
 });
 
 // Update Product Schema (Partial)
-// Note: variants is also partial, meaning it's optional. If provided, it must be a valid array of variants.
 export const updateProductSchema = createProductSchema.partial();
 
 export type CreateProductDTO = z.infer<typeof createProductSchema>;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { app } from "../../index";
+import { app } from "../../app";
 import { mockPrisma } from "../../tests/setup";
 
 describe("Orders Module", () => {

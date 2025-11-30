@@ -1,8 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { RewardsService } from "./rewards.service";
-import { redeemRewardSchema } from "./rewards.dto";
 import { roleGuard } from "../../middlewares/roleGuard";
-import { apiResponse } from "../../utils/response";
+import { apiResponse, apiNotFound } from "../../utils/response";
 
 const rewards = new OpenAPIHono();
 
@@ -12,17 +11,19 @@ const responseSchema = z.object({
   data: z.any().optional(),
 });
 
-// Protected Route: Redeem Rewards
-const redeemRoute = createRoute({
+// --- Redeem Reward ---
+const redeemRewardRoute = createRoute({
   method: 'post',
   path: '/redeem',
   tags: ['Rewards'],
-  summary: 'Redeem points',
+  summary: 'Redeem points for reward',
   request: {
     body: {
       content: {
         'application/json': {
-          schema: redeemRewardSchema,
+          schema: z.object({
+            rewardId: z.string(),
+          }),
         },
       },
     },
@@ -34,17 +35,17 @@ const redeemRoute = createRoute({
           schema: responseSchema,
         },
       },
-      description: 'Redemption successful',
+      description: 'Reward redeemed',
     },
   },
 });
 
-rewards.openapi(redeemRoute, roleGuard(["CUSTOMER", "BARISTA", "DATA_ANALYST", "ADMIN", "SUPERADMIN"]) as any, async (c: any) => {
-  const user = c.get("user") as any; // Temporary cast
-  const data = c.req.valid("json");
+rewards.openapi(redeemRewardRoute, roleGuard(["CUSTOMER"]) as any, async (c: any) => {
+  const user = c.get("user") as any;
+  const { rewardId } = c.req.valid("json");
   
-  const result = await RewardsService.redeemPoints(user.sub, data.cost);
-  return apiResponse(c, 200, "Redemption successful", result);
+  const result = await RewardsService.redeemReward(user.sub, rewardId);
+  return apiResponse(c, 200, "Reward redeemed successfully", result);
 });
 
 export default rewards;

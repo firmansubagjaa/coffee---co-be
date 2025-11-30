@@ -11,11 +11,12 @@ const responseSchema = z.object({
   data: z.any().optional(),
 });
 
+// --- Get Alerts ---
 const getAlertsRoute = createRoute({
   method: 'get',
   path: '/alerts',
   tags: ['Finance'],
-  summary: 'Get admin alerts',
+  summary: 'Get financial alerts',
   responses: {
     200: {
       content: {
@@ -46,11 +47,12 @@ finance.openapi(getAlertsRoute, roleGuard(["ADMIN", "SUPERADMIN"]) as any, async
   return apiResponse(c, 200, "List of alerts", alerts);
 });
 
+// --- Get PnL ---
 const getPnLRoute = createRoute({
   method: 'get',
   path: '/pnl',
   tags: ['Finance'],
-  summary: 'Get Profit & Loss statement',
+  summary: 'Get P&L statement',
   responses: {
     200: {
       content: {

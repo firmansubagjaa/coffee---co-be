@@ -45,7 +45,7 @@ const getWishlistRoute = createRoute({
   method: 'get',
   path: '/wishlist',
   tags: ['Social'],
-  summary: 'Get user wishlist',
+  summary: 'Get wishlist',
   responses: {
     200: {
       content: {
@@ -122,7 +122,7 @@ const getReviewsRoute = createRoute({
   method: 'get',
   path: '/products/{id}/reviews',
   tags: ['Social'],
-  summary: 'Get product reviews',
+  summary: 'Get reviews',
   request: {
     params: z.object({
       id: z.string(),

@@ -309,3 +309,16 @@ model Expense {
 
   @@map("expenses")
 }
+
+// --- 11. REWARDS ---
+model Reward {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  points      Int      // Cost in points
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("rewards")
+}

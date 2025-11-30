@@ -4,38 +4,49 @@ import { apiResponse } from "../../utils/response";
 
 const health = new OpenAPIHono();
 
-const responseSchema = z.object({
-  success: z.boolean(),
-  message: z.string().optional(),
-  data: z.any().optional(),
+const healthSchema = z.object({
+  status: z.string(),
+  database: z.string(),
+  uptime: z.number(),
 });
 
-const healthCheckRoute = createRoute({
+const healthRoute = createRoute({
   method: 'get',
   path: '/health',
   tags: ['Health'],
-  summary: 'Health Check',
+  summary: 'Check system health',
   responses: {
     200: {
       content: {
         'application/json': {
-          schema: responseSchema,
+          schema: z.object({
+            success: z.boolean(),
+            message: z.string(),
+            data: healthSchema,
+          }),
         },
       },
-      description: 'System Status',
+      description: 'System is healthy',
     },
     503: {
       content: {
         'application/json': {
-          schema: responseSchema,
+          schema: z.object({
+            success: z.boolean(),
+            message: z.string(),
+            data: z.object({
+              status: z.string(),
+              database: z.string(),
+            }),
+          }),
         },
       },
-      description: 'System Unhealthy',
+      description: 'System is unhealthy',
     },
   },
 });
 
-health.openapi(healthCheckRoute, async (c) => {
+health.openapi(healthRoute, async (c: any) => {
   let dbStatus = "disconnected";
   try {
     await prisma.$queryRaw`SELECT 1`;
